@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>✨ Dynamic Dashboard ✨</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    :root{
+      --bg: #fff5f8;
+      --header-bg: #ffffff;
+      /* Super Cute Pastel Palette */
+      --bubblegum: #ffdeeb;
+      --soft-mint: #d4f5d4;
+      --lavender: #e2d1f9;
+      --sky-candy: #c1e7ff;
+      --peach-fuzz: #ffeadb;
+      
+      --text: #5d5d5d;
+      --muted: #a0a0a0;
+      --accent: #ff85a1;
+      --shadow: 0 10px 30px rgba(255, 133, 161, 0.15);
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family: 'Quicksand', 'Segoe UI', sans-serif; background:var(--bg); color:var(--text); line-height:1.6}
+    .container{max-width:1200px; margin:20px auto; padding:0 20px}
+    
+    header{display:flex; justify-content:space-between; align-items:center; margin-bottom:25px; background:var(--header-bg); padding:20px 30px; border-radius:30px; box-shadow:var(--shadow); border: 3px solid var(--bubblegum)}
+    .nav-buttons{display:flex; gap:12px}
+    
+    .btn{padding:12px 20px; border-radius:20px; border:none; cursor:pointer; font-weight:800; transition:0.3s; font-size:14px; box-shadow: 0 4px 0 rgba(0,0,0,0.05)}
+    .btn:active{transform: translateY(3px); box-shadow: none}
+    .btn-main{background:var(--lavender); color:var(--text); border: 2px solid #cbb4f0}
+    .btn-outline{background:#fff; border: 3px solid var(--sky-candy)}
+    .btn-add{background:var(--soft-mint); color:var(--text); margin-bottom:15px; border: 2px solid #b5e6b5}
+    .btn-apply{background:var(--bubblegum); color:var(--text); width:100%; margin-top:20px; font-size:20px; border: 2px solid var(--accent); cursor: pointer}
+    
+    .insight-box{background:var(--header-bg); border: 3px solid var(--sky-candy); padding:20px; border-radius:25px; margin-bottom:25px; font-size:16px; display:flex; align-items:center; gap:15px; box-shadow:var(--shadow)}
+    .insight-icon{font-size: 30px}
+
+    .kpis{display:grid; grid-template-columns:repeat(4,1fr); gap:20px; margin-bottom:25px}
+    .kpi{background:#fff; padding:20px; border-radius:25px; box-shadow:var(--shadow); border: 2px solid var(--bubblegum); text-align: center; position: relative}
+    .kpi .label{color:var(--muted); font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:1px}
+    .kpi .value{font-size:28px; font-weight:900; margin:5px 0; color: var(--accent)}
+
+    .goal-container{background:#fdf0f5; height:12px; border-radius:15px; margin-top:12px; overflow:hidden; border: 1px solid var(--bubblegum)}
+    .goal-bar{background: linear-gradient(90deg, var(--accent), var(--bubblegum)); height:100%; transition:1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)}
+
+    .main-grid{display:grid; grid-template-columns: 1fr 1fr; gap:25px; margin-bottom:25px}
+    .card{background:#fff; padding:25px; border-radius:30px; box-shadow:var(--shadow); border: 2px solid #fff}
+    h4{margin:0 0 20px 0; font-size:18px; color:var(--accent); display:flex; justify-content:space-between; align-items:center}
+    
+    table{width:100%; border-collapse:separate; border-spacing: 0 10px}
+    th{padding:12px; text-align:left; color:var(--muted); font-size:12px; font-weight: 800}
+    td{padding:15px; background:#fffcfd; font-size:14px; border-top: 2px solid var(--bubblegum); border-bottom: 2px solid var(--bubblegum)}
+    td:first-child{border-radius:20px 0 0 20px; border-left: 2px solid var(--bubblegum)}
+    td:last-child{border-radius:0 20px 20px 0; border-right: 2px solid var(--bubblegum)}
+    
+    .section{display:none}
+    .section.active{display:block}
+    
+    [contenteditable="true"]{background:#fff; border:2px solid var(--sky-candy); border-radius:12px; padding:5px; outline: none}
+    .delete-btn{color:#ff6b6b; cursor:pointer; font-size:20px; transition: 0.2s}
+    .delete-btn:hover{transform: scale(1.2)}
+    
+    @media (max-width:800px){ .main-grid, .kpis{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div>
+      <h1 style="margin:0; color:var(--accent); font-size: 26px">✨ Dynamic Dashboard ✨</h1>
+      <span style="font-size:13px; color:var(--muted)">🌸 Making data cute and easy 🌸</span>
+    </div>
+    <div class="nav-buttons">
+      <button class="btn btn-outline" onclick="showTab('overview')">🎀 Home</button>
+      <button class="btn btn-main" onclick="showTab('data_edit')">✏️ Edit</button>
+      <input id="csvInput" type="file" accept=".csv" style="display:none" onchange="handleCSV(event)"/>
+      <label for="csvInput" class="btn btn-outline" style="background:var(--sky-candy)">☁️ Upload</label>
+    </div>
+  </header>
+
+  <div id="overview" class="section active">
+    <div class="insight-box" id="insightEngine"></div>
+
+    <div id="kpiRow" class="kpis"></div>
+
+    <div class="main-grid">
+      <div class="card">
+        <h4>📈 Daily Reach Trend</h4>
+        <canvas id="reachEngChart"></canvas>
+      </div>
+      <div class="card">
+        <h4>🍬 Efficiency by Content Type</h4>
+        <canvas id="contentTypeChart"></canvas>
+      </div>
+    </div>
+
+    <div class="main-grid">
+      <div class="card">
+        <h4>🏆 Top 5 Best Posts</h4>
+        <canvas id="topPostsChart"></canvas>
+      </div>
+      <div class="card">
+        <h4>🍭 Reach Split (Organic vs Paid)</h4>
+        <canvas id="reachSplitChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4>📂 Detailed Post Performance</h4>
+      <table id="postTable"></table>
+    </div>
+  </div>
+
+  <div id="data_edit" class="section">
+    <div class="card">
+      <h4>🗓️ Daily Performance <button class="btn btn-add" onclick="addRow('dailyDataTable')">➕ Add Day</button></h4>
+      <table id="dailyDataTable"></table>
+    </div>
+    <div class="card" style="margin-top:25px">
+      <h4>📸 Post Performance <button class="btn btn-add" onclick="addRow('postDataTable')">➕ Add Post</button></h4>
+      <table id="postDataTable"></table>
+      <button class="btn btn-apply" onclick="applyChanges()">💖 Update Everything! 💖</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let DATA = {
+  daily: [
+    {date:'Mon', reach:48000, engagement:2500, paid: 12000},
+    {date:'Tue', reach:55000, engagement:3800, paid: 18000},
+    {date:'Wed', reach:51000, engagement:3100, paid: 11000},
+    {date:'Thu', reach:68000, engagement:4900, paid: 22000},
+    {date:'Fri', reach:82000, engagement:6800, paid: 30000},
+    {date:'Sat', reach:91000, engagement:8200, paid: 38000},
+    {date:'Sun', reach:59000, engagement:4100, paid: 8000}
+  ],
+  posts: [
+    {id:"🌸 Post 1", type:"Reel", reach:18000, engagement:1500},
+    {id:"🧁 Post 2", type:"Image", reach:9000, engagement:400},
+    {id:"⭐ Post 3", type:"Carousel", reach:13000, engagement:1100},
+    {id:"🌈 Post 4", type:"Reel", reach:24000, engagement:2800},
+    {id:"🦋 Post 5", type:"Reel", reach:19500, engagement:2100},
+    {id:"🎈 Post 6", type:"Image", reach:10500, engagement:520},
+    {id:"🍭 Post 7", type:"Carousel", reach:15000, engagement:1300}
+  ],
+  reachGoal: 600000
+};
+
+let charts = {};
+const colors = ['#ffdeeb', '#c1e7ff', '#e2d1f9', '#ffeadb', '#d4f5d4'];
+
+function showTab(tabId) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+  if(tabId === 'overview') updateDashboard();
+}
+
+function updateDashboard() {
+  renderKPIs();
+  renderPostTable();
+  renderEditableTables();
+  mountCharts();
+  generateInsights();
+}
+
+function renderKPIs() {
+  const totals = DATA.daily.reduce((a, b) => ({
+    r: a.r + b.reach,
+    e: a.e + b.engagement,
+    p: a.p + (b.paid || 0)
+  }), {r:0, e:0, p:0});
+  
+  const er = (totals.e / totals.r) * 100;
+  const progress = Math.min((totals.r / DATA.reachGoal) * 100, 100);
+
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi"><div class="label">✨ Total Reach</div><div class="value">${totals.r.toLocaleString()}</div>
+      <div class="goal-container"><div class="goal-bar" style="width:${progress}%"></div></div>
+    </div>
+    <div class="kpi"><div class="label">💬 Engagements</div><div class="value">${totals.e.toLocaleString()}</div></div>
+    <div class="kpi"><div class="label">⭐ Avg ER %</div><div class="value">${er.toFixed(2)}%</div></div>
+    <div class="kpi"><div class="label">💸 Paid Share</div><div class="value">${((totals.p/totals.r)*100).toFixed(1)}%</div></div>
+  `;
+}
+
+function renderPostTable() {
+  const t = document.getElementById('postTable');
+  t.innerHTML = `<tr><th>Post ID</th><th>Format</th><th>Reach</th><th>Eng</th><th>ER %</th></tr>` + 
+    DATA.posts.map(p => {
+      const er = (p.engagement / p.reach) * 100;
+      return `<tr><td>${p.id}</td><td>${p.type}</td><td>${p.reach.toLocaleString()}</td><td>${p.engagement.toLocaleString()}</td><td>${er.toFixed(2)}%</td></tr>`
+    }).join('');
+}
+
+function renderEditableTables() {
+  document.getElementById('dailyDataTable').innerHTML = `<tr><th>Date</th><th>Reach</th><th>Eng</th><th>Paid Reach</th><th></th></tr>` + 
+    DATA.daily.map((d, i) => `<tr><td contenteditable="true">${d.date}</td><td contenteditable="true">${d.reach}</td><td contenteditable="true">${d.engagement}</td><td contenteditable="true">${d.paid || 0}</td><td class="delete-btn" onclick="removeRow('daily', ${i})">🗑️</td></tr>`).join('');
+  
+  document.getElementById('postDataTable').innerHTML = `<tr><th>Post ID</th><th>Type</th><th>Reach</th><th>Eng</th><th></th></tr>` + 
+    DATA.posts.map((p, i) => `<tr><td contenteditable="true">${p.id}</td><td contenteditable="true">${p.type}</td><td contenteditable="true">${p.reach}</td><td contenteditable="true">${p.engagement}</td><td class="delete-btn" onclick="removeRow('posts', ${i})">🗑️</td></tr>`).join('');
+}
+
+function mountCharts() {
+  Object.values(charts).forEach(c => c.destroy());
+  
+  charts.reach = new Chart(document.getElementById('reachEngChart'), {
+    type: 'line',
+    data: { 
+      labels: DATA.daily.map(d => d.date), 
+      datasets: [
+        { label: 'Reach', data: DATA.daily.map(d => d.reach), borderColor: '#c1e7ff', backgroundColor: 'rgba(193,231,255,0.4)', fill: true, tension: 0.4 },
+        { label: 'Engagement', data: DATA.daily.map(d => d.engagement), borderColor: '#ff85a1', tension: 0.4 }
+      ] 
+    },
+    options: { plugins: { legend: { position: 'bottom' } } }
+  });
+
+  const types = [...new Set(DATA.posts.map(p => p.type))];
+  const erData = types.map(t => {
+    const group = DATA.posts.filter(p => p.type === t);
+    return (group.reduce((s, p) => s + (p.engagement/p.reach), 0) / group.length) * 100;
+  });
+
+  charts.mix = new Chart(document.getElementById('contentTypeChart'), {
+    type: 'bar',
+    data: { 
+      labels: types, 
+      datasets: [{ label: 'Avg Engagement Rate %', data: erData, backgroundColor: colors }] 
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+
+  const topPosts = [...DATA.posts].sort((a,b) => b.engagement - a.engagement).slice(0,5);
+  charts.top = new Chart(document.getElementById('topPostsChart'), {
+    type: 'bar',
+    data: { 
+      labels: topPosts.map(p => p.id), 
+      datasets: [{ label: 'Engagements', data: topPosts.map(p => p.engagement), backgroundColor: '#e2d1f9' }] 
+    },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } } }
+  });
+
+  const totalR = DATA.daily.reduce((s, d) => s + d.reach, 0);
+  const totalP = DATA.daily.reduce((s, d) => s + (d.paid || 0), 0);
+  charts.split = new Chart(document.getElementById('reachSplitChart'), {
+    type: 'doughnut',
+    data: { 
+      labels: ['☁️ Organic', '💸 Paid'], 
+      datasets: [{ data: [totalR - totalP, totalP], backgroundColor: ['#d4f5d4', '#ffdeeb'] }] 
+    },
+    options: { cutout: '65%', plugins: { legend: { position: 'bottom' } } }
+  });
+}
+
+function generateInsights() {
+  const bestType = [...new Set(DATA.posts.map(p => p.type))].map(t => {
+    const group = DATA.posts.filter(p => p.type === t);
+    return { type: t, er: (group.reduce((s, p) => s + (p.engagement/p.reach), 0) / group.length) * 100 };
+  }).sort((a,b) => b.er - a.er)[0];
+
+  document.getElementById('insightEngine').innerHTML = `
+    <span class="insight-icon">💡</span>
+    <div>
+      <b>Magic Hint:</b> Your <b>${bestType.type}s</b> are absolute superstars with a <b>${bestType.er.toFixed(1)}%</b> engagement rate! 
+      You should definitely make more of these! 🌸🦄
+    </div>
+  `;
+}
+
+function addRow(tableId) {
+  const table = document.getElementById(tableId);
+  const row = table.insertRow(-1);
+  const cols = table.rows[0].cells.length;
+  for(let i=0; i<cols-1; i++) row.insertCell(i).contentEditable = "true";
+  row.insertCell(cols-1).innerHTML = "New";
+}
+
+function removeRow(type, index) {
+  DATA[type].splice(index, 1);
+  renderEditableTables();
+}
+
+function applyChanges() {
+  const dailyRows = Array.from(document.getElementById('dailyDataTable').rows).slice(1);
+  DATA.daily = dailyRows.map(r => ({
+    date: r.cells[0].innerText,
+    reach: parseInt(r.cells[1].innerText.replace(/,/g,'')) || 0,
+    engagement: parseInt(r.cells[2].innerText.replace(/,/g,'')) || 0,
+    paid: parseInt(r.cells[3].innerText.replace(/,/g,'')) || 0
+  }));
+
+  const postRows = Array.from(document.getElementById('postDataTable').rows).slice(1);
+  DATA.posts = postRows.map(r => ({
+    id: r.cells[0].innerText,
+    type: r.cells[1].innerText,
+    reach: parseInt(r.cells[2].innerText.replace(/,/g,'')) || 0,
+    engagement: parseInt(r.cells[3].innerText.replace(/,/g,'')) || 0
+  }));
+
+  showTab('overview');
+  alert('💖 Yay! Your data is all updated! 💖');
+}
+
+function handleCSV(event) {
+  const file = event.target.files[0];
+  Papa.parse(file, {
+    header: true,
+    dynamicTyping: true,
+    complete: (results) => {
+      DATA.daily = results.data.filter(d => d.reach);
+      updateDashboard();
+    }
+  });
+}
+
+window.onload = updateDashboard;
+</script>
+</body>
+</html>
